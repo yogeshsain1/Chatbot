@@ -8,7 +8,7 @@ let imageinput=document.querySelector("#image input")
 const Api_Url="https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyCch12jENbu0dra6qRGPOxF35bFfkp68Oc"
 
 let user={
-    message:null,
+    message:"Summarize the following text in a structured, step-by-step format with bullet points and proper paragraph spacing in 70 words",
     file:{
         mime_type:null,
         data: null
@@ -21,24 +21,65 @@ let text=aiChatBox.querySelector(".ai-chat-area")
     let RequestOption={
         method:"POST",
         headers:{'Content-Type' : 'application/json'},
-        body:JSON.stringify({
+        body:JSON.stringify(
+            {
             "contents":[
                 {"parts":[{text:user.message},(user.file.data?[{inline_data:user.file}]:[])
+                
 
                 ]
             }]
         })
     }
-    try{
-        let response= await fetch(Api_Url,RequestOption)
-        let data=await response.json()
-       let apiResponse=data.candidates[0].content.parts[0].text.replace(/\*\*(.*?)\*\*/g,"$1").trim()
-       text.innerHTML=apiResponse    
-    }
-    catch(error){
+    
+
+
+
+
+    
+    try {
+        let response = await fetch(Api_Url, RequestOption);
+        let data = await response.json();
+    
+        let rawResponse = data.candidates[0].content.parts[0].text;
+    
+        // Remove unnecessary asterisks (*) but keep bold formatting
+        let formattedResponse = rawResponse
+            .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>") // Convert **bold text** to <b>bold text</b>
+            .replace(/\*/g, "") // Remove unnecessary asterisks
+            .replace(/\n{2,}/g, "</p><br><p>") // Double newlines → Paragraphs
+            .replace(/\n/g, "<br><br>") // Single newlines → Line breaks
+            .trim();
+    
+        // Convert main steps into numbered lists
+        formattedResponse = formattedResponse.replace(/(?:Step )?(\d+):/g, "<li><b>Step $1:</b></li>");
+    
+        // Convert sub-steps starting with "-", "•", or indentation into bullet points
+        formattedResponse = formattedResponse.replace(/(?:-|\•)\s(.*?)(?=<br>|$)/g, "<ul><li>• $1</li></ul>");
+    
+        // Ensure bullet points are inside ordered list items
+        formattedResponse = formattedResponse.replace(/<\/ul><br>/g, "</ul><br>"); // Remove extra line breaks after bullet points
+    
+        // Wrap main steps inside <ol> tags if there are any steps
+        if (/<li><b>Step/.test(formattedResponse)) {
+            formattedResponse = "<ol>" + formattedResponse + "</ol>";
+        } else {
+            formattedResponse = `<p>${formattedResponse}</p>`; // Wrap general text inside paragraphs
+        }
+    
+        // Ensure proper sentence ending
+        formattedResponse = formattedResponse.replace(/(<br>)+$/, "");
+    
+        // Assign the formatted HTML to the innerHTML of text
+        text.innerHTML = formattedResponse;
+    
+    } catch (error) {
         console.log(error);
-        
+        text.innerHTML = "Error generating response. Please try again.";
     }
+    
+    
+    
     finally{
         chatContainer.scrollTo({top:chatContainer.scrollHeight,behavior:"smooth"})
         image.src=`img.svg`
